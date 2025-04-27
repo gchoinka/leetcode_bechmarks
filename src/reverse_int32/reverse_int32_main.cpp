@@ -5,6 +5,8 @@
 #include <format>
 #include <limits>
 #include <random>
+
+
 namespace
 {
 namespace others
@@ -47,14 +49,14 @@ constexpr bool check_will_overflow(std::int32_t x)
     {
         return true;
     }
-    if (x < 0)
+    if (x < 0) // if negaive make it positive
     {
         x *= -1;
         last_digit = 8;
     }
 
-    std::array<std::uint8_t, 10> int_max{2, 1, 4, 7, 4, 8, 3, 6, 4, last_digit};
-    for (auto const v : int_max)
+    std::array<std::uint8_t, 10> int32_max{2, 1, 4, 7, 4, 8, 3, 6, 4, last_digit};
+    for (auto const v : int32_max)
     {
         auto const to_check = x % 10;
         x = x / 10;
@@ -65,7 +67,7 @@ constexpr bool check_will_overflow(std::int32_t x)
     return false;
 }
 
-constexpr auto lookup = []() {
+constexpr auto swap_digits_lookup = []() {
     std::array<std::uint8_t, 100> v;
     for (int i = 0; i < 100; ++i)
     {
@@ -76,23 +78,23 @@ constexpr auto lookup = []() {
 
 std::int32_t reverse_int32(std::int32_t x)
 {
-    if (check_will_overflow(x))
+    if (check_will_overflow(x)) // only specific numbers will overflow, the idea here is that if we do the test before
+                                // we can avoid doing the overflow test in the loop
         return 0;
-    auto const sign = x >= 0 ? 1 : -1;
-    x *= sign;
 
-    if (x < 10)
-    {
-        return x * sign;
-    }
+    if (x < 10 && x > -10) // nothing to reverse here
+        return x;
+
+    auto const sign = x >= 0 ? 1 : -1;
+    x *= sign; // make x positive, at the end we will add the sign again
 
     std::int32_t result = 0;
     while (x >= 10)
     {
         result *= 100;
-        auto last_d = x % 100;
+        auto last_two_digits = x % 100;
         x = x / 100;
-        result += lookup[last_d];
+        result += swap_digits_lookup[last_two_digits];
     }
     if (x != 0)
         result *= 10;
@@ -101,63 +103,46 @@ std::int32_t reverse_int32(std::int32_t x)
 } // namespace my
 namespace check
 {
-static auto const random_num = []() {
-    std::mt19937 generator((std::random_device{})());
+std::vector<std::int32_t> make_dataset()
+{
+    std::mt19937 generator(42);
     std::uniform_int_distribution<std::int32_t> distribute(std::numeric_limits<std::int32_t>::min(),
                                                            std::numeric_limits<std::int32_t>::max());
-    std::vector<std::int32_t> test_numbers;
-    auto const n = 1e6;
-    test_numbers.reserve(n);
-    for (int i = 0; i < n; ++i)
-    {
-        test_numbers.push_back(distribute(generator));
-    }
+    auto const n_testcases = 1e6;
+    std::vector<std::int32_t> test_numbers(n_testcases);
+    std::generate(test_numbers.begin(), test_numbers.end(), [&]() { return distribute(generator); });
     return test_numbers;
+}
+
+auto const _ = []() { // the test is run before main
+    for (auto const &num : make_dataset())
+    {
+        auto b1 = my::reverse_int32(num);
+        auto b2 = others::reverse_modulo_ten(num);
+        if (b1 != b2)
+            throw std::runtime_error(std::format(
+                "Found missmatch for number:{} my::reverse_int32:{} others::reverse_modulo_ten:{}", num, b1, b2));
+    }
+    return true;
 }();
+
 } // namespace check
 } // namespace
-static void bench_others_reverse_modulo_ten(benchmark::State &state)
+
+template <auto &fnptr> static void bench(benchmark::State &state)
 {
+    auto const dataset = check::make_dataset();
     for (auto _ : state)
     {
-        for (auto const & num : check::random_num)
+        for (auto const &num : dataset)
         {
-            auto b = others::reverse_modulo_ten(num);
+            auto b = fnptr(num);
             benchmark::DoNotOptimize(b);
         }
     }
 }
-// Register the function as a benchmark
-BENCHMARK(bench_others_reverse_modulo_ten);
 
-static void bench_my_reverse_int32(benchmark::State &state)
-{
-    for (auto _ : state)
-    {
-        for (auto const & num : check::random_num)
-        {
-            auto b = my::reverse_int32(num);
-            benchmark::DoNotOptimize(b);
-        }
-    }
-}
-BENCHMARK(bench_my_reverse_int32);
-
-static void bench_reverse_check_same(benchmark::State &state)
-{
-    for (auto _ : state)
-    {
-        for (auto const & num : check::random_num)
-        {
-            auto b1 = my::reverse_int32(num);
-            auto b2 = others::reverse_modulo_ten(num);
-            if (b1 != b2)
-                throw std::runtime_error(
-                    std::format("Found missmatch for number:{} my::reverse_int32:{} others::reverse_modulo_ten:{}", num, b1, b2));
-            benchmark::DoNotOptimize(b1);
-        }
-    }
-}
-BENCHMARK(bench_reverse_check_same);
+BENCHMARK_TEMPLATE1(bench, others::reverse_modulo_ten);
+BENCHMARK_TEMPLATE1(bench, my::reverse_int32);
 
 BENCHMARK_MAIN();

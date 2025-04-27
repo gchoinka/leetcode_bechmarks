@@ -2,7 +2,6 @@
 
 #include <exception>
 #include <format>
-#include <iostream>
 #include <map>
 #include <random>
 #include <unordered_map>
@@ -98,7 +97,8 @@ struct TestSet
     int target;
 };
 
-std::vector<TestSet> const test_sets = []() {
+std::vector<TestSet> make_dataset()
+{
     // std::mt19937 generator((std::random_device{})());
     std::mt19937 generator(42);
     std::uniform_int_distribution<std::int32_t> distribute(std::numeric_limits<std::int32_t>::min() / 2 + 1,
@@ -137,7 +137,7 @@ std::vector<TestSet> const test_sets = []() {
     }
 
     return test_cases;
-}();
+}
 
 void check_if_valid(std::vector<int> const &nums, std::vector<int> const &two_idx, int target)
 {
@@ -173,60 +173,23 @@ void check_if_valid(std::vector<int> const &nums, std::vector<int> const &two_id
 } // namespace check
 } // namespace
 
-static void bench_others_twoSum_unordered_map(benchmark::State &state)
+template <auto &fnptr> static void bench(benchmark::State &state)
 {
+    auto const dataset = check::make_dataset();
     for (auto _ : state)
     {
-        for (auto const &test_set : check::test_sets)
+        for (auto const &test_set : dataset)
         {
-            auto b = others::twoSum_unordered_map(test_set.nums, test_set.target);
+            auto b = fnptr(test_set.nums, test_set.target);
             check::check_if_valid(test_set.nums, b, test_set.target);
             benchmark::DoNotOptimize(b);
         }
     }
 }
-BENCHMARK(bench_others_twoSum_unordered_map);
 
-static void bench_others_twoSum_map(benchmark::State &state)
-{
-    for (auto _ : state)
-    {
-        for (auto const &test_set : check::test_sets)
-        {
-            auto b = others::twoSum_map(test_set.nums, test_set.target);
-            check::check_if_valid(test_set.nums, b, test_set.target);
-            benchmark::DoNotOptimize(b);
-        }
-    }
-}
-BENCHMARK(bench_others_twoSum_map);
-
-static void bench_others_twoSum_n_square(benchmark::State &state)
-{
-    for (auto _ : state)
-    {
-        for (auto const &test_set : check::test_sets)
-        {
-            auto b = others::twoSum_n_square(test_set.nums, test_set.target);
-            check::check_if_valid(test_set.nums, b, test_set.target);
-            benchmark::DoNotOptimize(b);
-        }
-    }
-}
-BENCHMARK(bench_others_twoSum_n_square);
-
-static void bench_my_twoSum_with_sort(benchmark::State &state)
-{
-    for (auto _ : state)
-    {
-        for (auto const & test_set : check::test_sets)
-        {
-            auto b = my::twoSum_with_sort(test_set.nums, test_set.target);
-            check::check_if_valid(test_set.nums, b, test_set.target);
-            benchmark::DoNotOptimize(b);
-        }
-    }
-}
-BENCHMARK(bench_my_twoSum_with_sort);
+BENCHMARK_TEMPLATE1(bench, others::twoSum_unordered_map);
+BENCHMARK_TEMPLATE1(bench, others::twoSum_map);
+BENCHMARK_TEMPLATE1(bench, others::twoSum_n_square);
+BENCHMARK_TEMPLATE1(bench, my::twoSum_with_sort);
 
 BENCHMARK_MAIN();
