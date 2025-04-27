@@ -1,0 +1,4 @@
+add_executable(reverse_int32_benchmark main.cpp)
+
+set_property(TARGET reverse_int32_benchmark PROPERTY CXX_STANDARD 23)
+target_link_libraries(reverse_int32_benchmark benchmark::benchmark)
