@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.28)
 project(Playground LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
-
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_compile_options(
     $<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color=always>
@@ -29,5 +29,17 @@ CPMAddPackage(
 )
 
 add_compile_options(-Wall -Wextra -Wpedantic)
+
+# add_custom_target(
+#     link_compile_commands_to_root ALL
+#     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/__compile_commands.json
+# )
+
+# add_custom_command(
+#     OUTPUT
+#         ${CMAKE_CURRENT_BINARY_DIR}/__compile_commands.json
+#         ${CMAKE_CURRENT_SOURCE_DIR}/compile_commands.json  
+#     COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json ${CMAKE_CURRENT_SOURCE_DIR}/compile_commands.json  
+# )
 
 add_subdirectory(src)

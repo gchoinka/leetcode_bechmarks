@@ -1,3 +1,4 @@
 add_subdirectory(reverse_int32)
 add_subdirectory(two_sums)
 add_subdirectory(sandbox)
+add_subdirectory(remove_element)
