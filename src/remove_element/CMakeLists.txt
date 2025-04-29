@@ -1,4 +1,5 @@
 add_executable(remove_element_benchmark remove_element_main.cpp)
 
 set_property(TARGET remove_element_benchmark PROPERTY CXX_STANDARD 23)
-target_link_libraries(remove_element_benchmark benchmark::benchmark)
+target_link_libraries(remove_element_benchmark PRIVATE benchmark::benchmark)
+target_link_libraries(remove_element_benchmark PRIVATE Boost::range)

@@ -1,13 +1,13 @@
 #include <benchmark/benchmark.h>
+//#include <boost/range/irange.hpp>
+#include <boost/range/irange.hpp>
 
 #include <algorithm>
 #include <iterator>
 #include <random>
 #include <ranges>
-#include <stdexcept>
 #include <string_view>
 #include <unordered_set>
-#include <utility>
 #include <vector>
 
 namespace
@@ -56,16 +56,34 @@ struct DataSet
 {
     std::vector<int> nums;
     int to_remove;
-    std::vector<int> expect;
+    std::vector<int> expected;
 };
 
 std::vector<DataSet> make_dataset()
 {
     std::vector<DataSet> dataset{
+        DataSet{{}, 3, {}},
         DataSet{{3, 2, 2, 3}, 3, {2, 2}},
         DataSet{{0, 1, 2, 2, 3, 0, 4, 2}, 2, {0, 1, 3, 0, 4}},
         DataSet{{0, 1, 2, 2, 3, 0, 4, 2}, 9, {0, 1, 2, 2, 3, 0, 4, 2}},
     };
+
+    std::mt19937 rnd(42);
+    std::uniform_int_distribution<std::int32_t> values_inside(-100,+100);
+    std::uniform_int_distribution<std::int32_t> nums_size(1,+100);
+    auto const n_testcases = 1'000;
+    for( auto const _: boost::irange(n_testcases))
+    {
+        std::vector<int> nums(nums_size(rnd));
+        std::generate(nums.begin(), nums.end(), [&]() { return values_inside(rnd); });
+        std::uniform_int_distribution<std::size_t> rnd_element(0, nums.size() - 1);
+        auto const to_remove = nums[rnd_element(rnd)];
+        std::vector<int> expected; expected.reserve(nums.size());
+        std::copy_if(nums.begin(), nums.end(), std::back_inserter(expected), [&to_remove](auto const & element){ return to_remove != element;});
+        dataset.push_back(DataSet{nums, to_remove, expected});
+    }
+    // std::vector<std::int32_t> test_numbers(n_testcases);
+    // std::generate(test_numbers.begin(), test_numbers.end(), [&]() { return distribute(generator); });
 
     return dataset;
 }
@@ -98,7 +116,7 @@ void check_if_valid(int size_after_remove, std::vector<int> nums, DataSet const 
         }
         delimter = "";
         std::string expect_as_str;
-        for (auto const &n : ds.expect)
+        for (auto const &n : ds.expected)
         {
             (expect_as_str += delimter) += std::to_string(n);
             delimter = ",";
@@ -109,7 +127,7 @@ void check_if_valid(int size_after_remove, std::vector<int> nums, DataSet const 
     if (size_after_remove != static_cast<int>(nums.size()))
         throw std::runtime_error(make_msg(std::format("return value:{} has not the same size than nums.size() -> {}",
                                                       size_after_remove, ds.nums.size())));
-    if (ranges::to<std::unordered_set<int>>(nums) != ranges::to<std::unordered_set<int>>(ds.expect))
+    if (ranges::to<std::unordered_set<int>>(nums) != ranges::to<std::unordered_set<int>>(ds.expected))
         throw std::runtime_error(make_msg("nums and expected differ"));
 }
 
