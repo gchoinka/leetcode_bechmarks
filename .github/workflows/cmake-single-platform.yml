@@ -40,3 +40,5 @@ jobs:
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest -C ${{env.BUILD_TYPE}}
 
+    - name: Run Benchmarks
+      run: find ${{github.workspace}}/build -iname "*_benchmark" -type f -executable -exec {} \;
