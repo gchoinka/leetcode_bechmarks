@@ -1,5 +1,5 @@
 #include <benchmark/benchmark.h>
-//#include <boost/range/irange.hpp>
+// #include <boost/range/irange.hpp>
 #include <boost/range/irange.hpp>
 
 #include <algorithm>
@@ -69,21 +69,21 @@ std::vector<DataSet> make_dataset()
     };
 
     std::mt19937 rnd(42);
-    std::uniform_int_distribution<std::int32_t> values_inside(-100,+100);
-    std::uniform_int_distribution<std::int32_t> nums_size(1,+100);
+    std::uniform_int_distribution<std::int32_t> values_inside(-100, +100);
+    std::uniform_int_distribution<std::int32_t> nums_size(1, +100);
     auto const n_testcases = 1'000;
-    for( auto const _: boost::irange(n_testcases))
+    for (auto const _ : boost::irange(n_testcases))
     {
         std::vector<int> nums(nums_size(rnd));
         std::generate(nums.begin(), nums.end(), [&]() { return values_inside(rnd); });
         std::uniform_int_distribution<std::size_t> rnd_element(0, nums.size() - 1);
         auto const to_remove = nums[rnd_element(rnd)];
-        std::vector<int> expected; expected.reserve(nums.size());
-        std::copy_if(nums.begin(), nums.end(), std::back_inserter(expected), [&to_remove](auto const & element){ return to_remove != element;});
+        std::vector<int> expected;
+        expected.reserve(nums.size());
+        std::copy_if(nums.begin(), nums.end(), std::back_inserter(expected),
+                     [&to_remove](auto const &element) { return to_remove != element; });
         dataset.push_back(DataSet{nums, to_remove, expected});
     }
-    // std::vector<std::int32_t> test_numbers(n_testcases);
-    // std::generate(test_numbers.begin(), test_numbers.end(), [&]() { return distribute(generator); });
 
     return dataset;
 }
