@@ -1,15 +1,11 @@
-#include "boost/container/container_fwd.hpp"
-#include "boost/json/parser.hpp"
 #include <algorithm>
 #include <benchmark/benchmark.h>
 #include <boost/container/small_vector.hpp>
 #include <boost/container/static_vector.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/json.hpp>
-
 #include <cstddef>
-#include <exception>
 #include <format>
+#include <fstream>
+#include <ios>
 #include <limits>
 #include <map>
 #include <memory>
@@ -17,9 +13,9 @@
 #include <random>
 #include <sstream>
 #include <string>
-#include <tuple>
 #include <unordered_map>
 #include <vector>
+#include <bench_utils/bench_utils.hpp>
 
 namespace
 {
@@ -157,7 +153,7 @@ std::vector<TestSet> make_dataset(std::size_t num_max_size = 2'000)
         TestSet{{3, 2, 4}, 5},    TestSet{{3, 2, 4}, 7},      TestSet{{3, 3}, 6},
     };
 
-    std::uniform_int_distribution<std::int32_t> nums_size_dist(2, num_max_size);
+    std::uniform_int_distribution<std::int32_t> nums_size_dist(num_max_size * 0.75, num_max_size);
     const auto n_test_cases = 1e4;
 
     auto gen = [&]() { return distribute(generator); };
@@ -240,6 +236,7 @@ struct Benchmark
     void (*bench_f)(benchmark::State &);
     std::string name;
 };
+
 #define REG_BENCH(benchf)                                                                                              \
     Benchmark                                                                                                          \
     {                                                                                                                  \
@@ -248,72 +245,34 @@ struct Benchmark
 
 } // namespace
 
-class MyReporter : public benchmark::BenchmarkReporter
-{
-  public:
-    MyReporter()
-    {
-    }
 
-    void addReporter(std::unique_ptr<benchmark::BenchmarkReporter> &&rep)
-    {
-        reporter_.push_back(std::move(rep));
-    }
-    bool ReportContext(const Context &context) override
-    {
-        bool results = true;
-        for (auto &r : reporter_)
-            results = results && r->ReportContext(context);
-        return results;
-    }
-    void ReportRuns(const std::vector<Run> &reports) override
-    {
-        for (auto &r : reporter_)
-            r->ReportRuns(reports);
-    }
-    void Finalize() override
-    {
-        for (auto &r : reporter_)
-            r->Finalize();
-    }
-
-    std::vector<std::unique_ptr<benchmark::BenchmarkReporter>> &GetReporter()
-    {
-        return reporter_;
-    }
-
-  private:
-    std::vector<std::unique_ptr<benchmark::BenchmarkReporter>> reporter_;
-};
 
 int main(int argc, char **argv)
 {
-    constexpr auto range_start = 8;
-    constexpr auto range_end = 8 << 2;
+    auto argv_filtered = bench_utils::filter(argc, argv);
 
     std::vector<Benchmark> benches{REG_BENCH(bench<others::twoSum_unordered_map>), REG_BENCH(bench<others::twoSum_map>),
                                    REG_BENCH(bench<others::twoSum_n_square>),
                                    REG_BENCH(bench<my::twoSum_with_sort_vector>),
                                    REG_BENCH(bench<my::twoSum_with_sort_array>)};
-    benches.resize(2);
+    // benches.resize(2);
     for (auto const &b : benches)
-        benchmark::RegisterBenchmark(b.name, b.bench_f)->Range(range_start, range_end);
+        benchmark::RegisterBenchmark(b.name, b.bench_f)
+            ->RangeMultiplier(2)
+            ->Range(argv_filtered.range_start, argv_filtered.range_end);
 
-    benchmark::Initialize(&argc, argv);
-    auto reporter = std::make_unique<MyReporter>();
-    reporter->addReporter(std::unique_ptr<benchmark::BenchmarkReporter>{benchmark::CreateDefaultDisplayReporter()});
-    reporter->addReporter(std::make_unique<benchmark::JSONReporter>());
+    benchmark::Initialize(&(argv_filtered.argc), argv_filtered.argv.data());
+
     std::stringstream outstream;
-    reporter->GetReporter().back()->SetOutputStream(&outstream);
-    benchmark::RunSpecifiedBenchmarks(reporter.release());
-    std::print("{}", outstream.str());
+    auto reporter = bench_utils::make_reporter(outstream);
 
+    benchmark::RunSpecifiedBenchmarks(reporter.release());
     benchmark::Shutdown();
 
-    auto report = boost::json::parse(outstream.str());
-    for( auto const & r: report.at("benchmarks").as_array())
+    if (!argv_filtered.vega_plot_path.empty())
     {
-        std::print("names {}\n", r.at("name").as_string().c_str());
+        std::ofstream vega_plot_file(argv_filtered.vega_plot_path.c_str(), std::ios::out);
+        bench_utils::make_vega_plot(outstream.str(), vega_plot_file);
     }
 }
 

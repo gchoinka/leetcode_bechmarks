@@ -41,4 +41,9 @@ jobs:
       run: ctest -C ${{env.BUILD_TYPE}}
 
     - name: Run Benchmarks
-      run: find ${{github.workspace}}/build -iname "*_benchmark" -type f -executable -exec {} \;
+      run: find ${{github.workspace}}/build -iname "*_benchmark" -type f -executable -exec {} --vega_plot_file={}.md \;
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: bechmark-polts
+        path: ${{github.workspace}}/build/src/*/*_benchmark.md
