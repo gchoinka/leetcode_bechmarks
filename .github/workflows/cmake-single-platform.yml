@@ -44,9 +44,9 @@ jobs:
       run: find ${{github.workspace}}/build -iname "*_benchmark" -type f -executable -exec {} \;
 
     - name: Run Benchmarks with plots
-      run: find ${{github.workspace}}/build -iname "two_sums_benchmark" -type f -executable -exec {} --vega_plot_file={}.md \;
+      run: ${{github.workspace}}/build/src/two_sums/two_sums_benchmark --vega-plot=${{github.workspace}}/build/src/two_sums/two_sums_benchmark.md
 
     - uses: actions/upload-artifact@v4
       with:
         name: bechmark-polts
-        path: ${{github.workspace}}/build/src/*/*_benchmark.md
+        path: ${{github.workspace}}/build/src/two_sums/two_sums_benchmark.md
