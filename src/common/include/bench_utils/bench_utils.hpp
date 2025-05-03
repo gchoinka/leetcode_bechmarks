@@ -6,22 +6,19 @@
 namespace bench_utils
 {
 
-struct FilteredArgv
+struct BenchArgs
 {
     std::vector<char *> argv;
     int argc;
     std::filesystem::path vega_plot_path;
-    int range_start = 8 << 1;
-    int range_end = 8 << 10;
+    std::optional<std::tuple<int, int>> range;
 };
 
-FilteredArgv filter(int argc, char **argv);
+BenchArgs extract_args(int argc, char **argv);
 
 class MyReporter : public benchmark::BenchmarkReporter
 {
   public:
-    MyReporter();
-
     void addReporter(std::unique_ptr<benchmark::BenchmarkReporter> &&rep);
     bool ReportContext(const Context &context) override;
     void ReportRuns(const std::vector<Run> &reports) override;
@@ -35,4 +32,18 @@ class MyReporter : public benchmark::BenchmarkReporter
 void make_vega_plot(std::string_view benchmark_report_as_json, std::ostream &out);
 
 std::unique_ptr<MyReporter> make_reporter(std::ostream &out);
+
+struct Benchmark
+{
+    void (*bench_f)(benchmark::State &);
+    std::string name;
+};
+
+int benchmark_main(std::vector<Benchmark> &benchmarks, int argc, char **argv);
 } // namespace bench_utils
+
+#define REG_BENCH(benchf)                                                                                              \
+    bench_utils::Benchmark                                                                                             \
+    {                                                                                                                  \
+        (benchf), (#benchf)                                                                                            \
+    }

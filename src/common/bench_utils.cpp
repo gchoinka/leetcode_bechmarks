@@ -1,10 +1,13 @@
 #include "bench_utils/bench_utils.hpp"
 
-
 #include <boost/json.hpp>
 #include <boost/regex.hpp>
+
 #include <string>
 #include <string_view>
+#include <tuple>
+#include <fstream>
+
 namespace
 {
 std::string pretty_print(boost::json::value const &jv, std::string *indent = nullptr)
@@ -106,18 +109,23 @@ struct PlotValues
 namespace bench_utils
 {
 
-FilteredArgv filter(int argc, char **argv)
+BenchArgs extract_args(int argc, char **argv)
 {
-    auto a = FilteredArgv{{}, argc, ""};
+    auto a = BenchArgs{{}, argc, "", {}};
 
-    auto const expresssion = boost::regex(R"""(--vega-plot="?([^"]*)"?)""");
+    auto const plot_path_e = boost::regex(R"""(--vega-plot="?([^"]*)"?)""");
+    auto const range_e = boost::regex(R"""(--range=([0-9]*),([0-9]*))""");
     for (int i = 0; i < argc; ++i)
     {
         auto matches = boost::match_results<std::string::const_iterator>{};
         auto const one_arg = std::string{argv[i]};
-        if (boost::regex_match(one_arg, matches, expresssion))
+        if (boost::regex_match(one_arg, matches, plot_path_e))
         {
             a.vega_plot_path = matches[1];
+        }
+        else if (boost::regex_match(one_arg, matches, range_e))
+        {
+            a.range = std::tuple{std::stoi(matches[1].str()), std::stoi(matches[2].str())};
         }
         else
         {
@@ -127,10 +135,6 @@ FilteredArgv filter(int argc, char **argv)
 
     a.argc = a.argv.size();
     return a;
-}
-
-MyReporter::MyReporter()
-{
 }
 
 void MyReporter::addReporter(std::unique_ptr<benchmark::BenchmarkReporter> &&rep)
@@ -249,6 +253,35 @@ std::unique_ptr<MyReporter> make_reporter(std::ostream &out)
     reporter->addReporter(std::make_unique<benchmark::JSONReporter>());
     reporter->GetReporter().back()->SetOutputStream(&out);
     return reporter;
+}
+
+int benchmark_main(std::vector<Benchmark> & benchmarks, int argc, char ** argv)
+{
+    auto argv_filtered = bench_utils::extract_args(argc, argv);
+
+    // benches.resize(2);
+    for (auto const &b : benchmarks)
+    {
+        auto reg_b = benchmark::RegisterBenchmark(b.name, b.bench_f)
+            ->RangeMultiplier(2);
+        if(argv_filtered.range)
+            reg_b->Range(std::get<0>(*argv_filtered.range), std::get<1>(*argv_filtered.range));
+    }
+
+    benchmark::Initialize(&(argv_filtered.argc), argv_filtered.argv.data());
+
+    std::stringstream outstream;
+    auto reporter = bench_utils::make_reporter(outstream);
+
+    benchmark::RunSpecifiedBenchmarks(reporter.release());
+    benchmark::Shutdown();
+
+    if (!argv_filtered.vega_plot_path.empty())
+    {
+        std::ofstream vega_plot_file(argv_filtered.vega_plot_path.c_str(), std::ios::out);
+        bench_utils::make_vega_plot(outstream.str(), vega_plot_file);
+    }
+    return 0;
 }
 
 } // namespace bench_utils

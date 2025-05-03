@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <bench_utils/bench_utils.hpp>
 #include <benchmark/benchmark.h>
 #include <boost/container/small_vector.hpp>
 #include <boost/container/static_vector.hpp>
@@ -15,7 +16,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <bench_utils/bench_utils.hpp>
 
 namespace
 {
@@ -231,49 +231,15 @@ template <auto &fnptr> static void bench(benchmark::State &state)
     state.counters["range"] = state.range(0);
 }
 
-struct Benchmark
-{
-    void (*bench_f)(benchmark::State &);
-    std::string name;
-};
-
-#define REG_BENCH(benchf)                                                                                              \
-    Benchmark                                                                                                          \
-    {                                                                                                                  \
-        (benchf), (#benchf)                                                                                            \
-    }
-
 } // namespace
-
-
 
 int main(int argc, char **argv)
 {
-    auto argv_filtered = bench_utils::filter(argc, argv);
-
-    std::vector<Benchmark> benches{REG_BENCH(bench<others::twoSum_unordered_map>), REG_BENCH(bench<others::twoSum_map>),
+    std::vector<bench_utils::Benchmark> benchmarks{
+                                   REG_BENCH(bench<others::twoSum_unordered_map>), REG_BENCH(bench<others::twoSum_map>),
                                    REG_BENCH(bench<others::twoSum_n_square>),
                                    REG_BENCH(bench<my::twoSum_with_sort_vector>),
-                                   REG_BENCH(bench<my::twoSum_with_sort_array>)};
-    // benches.resize(2);
-    for (auto const &b : benches)
-        benchmark::RegisterBenchmark(b.name, b.bench_f)
-            ->RangeMultiplier(2)
-            ->Range(argv_filtered.range_start, argv_filtered.range_end);
-
-    benchmark::Initialize(&(argv_filtered.argc), argv_filtered.argv.data());
-
-    std::stringstream outstream;
-    auto reporter = bench_utils::make_reporter(outstream);
-
-    benchmark::RunSpecifiedBenchmarks(reporter.release());
-    benchmark::Shutdown();
-
-    if (!argv_filtered.vega_plot_path.empty())
-    {
-        std::ofstream vega_plot_file(argv_filtered.vega_plot_path.c_str(), std::ios::out);
-        bench_utils::make_vega_plot(outstream.str(), vega_plot_file);
-    }
+                                   REG_BENCH(bench<my::twoSum_with_sort_array>)
+                                };
+    return bench_utils::benchmark_main(benchmarks, argc, argv);
 }
-
-#undef REG_BENCH
